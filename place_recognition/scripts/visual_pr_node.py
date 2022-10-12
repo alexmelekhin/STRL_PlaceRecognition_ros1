@@ -38,7 +38,7 @@ class VisualPRNode:
 
         self.db_index = self._load_index(self.config)
 
-        self.db_csv = pd.read_csv(self.config.database.csv, index_col=0)
+        self.db_csv = pd.read_csv(self.config.database.csv, index_col=0, dtype={'image_ts': str, 'lidar_ts': str})
 
         self.sub_image = message_filters.Subscriber('image', CompressedImage, queue_size=1)
         self.pub_pose = rospy.Publisher('estimated_pose', PoseStamped, queue_size=1)
