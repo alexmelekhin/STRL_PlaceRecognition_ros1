@@ -114,8 +114,9 @@ roslaunch place_recognition visual_pr.launch
 
 - `config_path`: путь к yaml-конфигу алгоритма. Значение по умолчанию: `/home/docker_place_recognition/catkin_ws/src/place_recognition/config/netvlad_config.yaml`.
 - `namespace`: пространство имен публикуемых узлом топиков (т.е. "приставка" в начале названия топика). Значение по умолчанию: `/visual_pr`.
-- `image_topic`: имя топика входящий query-изображений. Значение по умолчанию: `/pr_query_image/compressed`.
-- `pose_topic`: имя топика, в который будут публиковаться данные о найденной reference-позе. Значение по умолчанию: `/estimated_pose`. Полное имя топика будет `namespace` + `pose_topic`.
+- `image_topic`: имя топика входящих query-изображений. Значение по умолчанию: `/zed_node/left/image_rect_color/compressed`.
+- `pose_topic`: имя топика, в который будут публиковаться данные о найденной reference-позе. Значение по умолчанию: `/initialpose`.
+- `localization_status_topic`: топик со статусом локализации, на который будет подписываться узел. Значение по умолчанию: `/localization_status`.
 
 ## Описание узлов
 
@@ -134,9 +135,10 @@ TODO:
 - Patch-NetVLAD: [arxiv](https://arxiv.org/abs/2103.01486v1), [github.com/QVPR/Patch-NetVLAD](https://github.com/QVPR/Patch-NetVLAD)
 - CosPlace: [arxiv](https://arxiv.org/abs/2204.02287), [github.com/gmberton/CosPlace](https://github.com/gmberton/CosPlace)
 
-Узел подписывается на топики:
--  `/pr_query_image/compressed`: изображение-запрос, тип `sensor_msgs/CompressedImage`.
+#### Узел подписывается на топики:
+- `image_topic`: изображение-запрос, тип `sensor_msgs/CompressedImage`.
+- `localization_status_topic`: текущий статус локализации, тип `std_msgs/Bool`. Логика: значение `false` означает потерю локализации и необходимость определения места методом Place Recognition.
 
-Узел публикует сообщения в топики:
+#### Узел публикует сообщения в топики:
 - `/visual_pr/estimated_pose`: поза наиболее похожего изображения-места из БД, тип `geometry_msgs/PoseStamped`;
 - `/visual_pr/ref_image_ts`: timestamp наиболее похожего изображения-места из БД (может быть полезно для визуализации и отладки), тип `std_msgs/String`.

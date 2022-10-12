@@ -13,9 +13,9 @@ import rospy
 import message_filters
 from PIL import Image
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from sensor_msgs.msg import CompressedImage
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseWithCovarianceStamped
 
 from src.utils import convert_dict_to_tuple
 from src.models.model_factory import get_model
@@ -40,13 +40,33 @@ class VisualPRNode:
 
         self.db_csv = pd.read_csv(self.config.database.csv, index_col=0, dtype={'image_ts': str, 'lidar_ts': str})
 
-        self.sub_image = message_filters.Subscriber('image', CompressedImage, queue_size=1)
-        self.pub_pose = rospy.Publisher('estimated_pose', PoseStamped, queue_size=1)
+        # self.sub_image = message_filters.Subscriber('image', CompressedImage, queue_size=1)
+        self.sub_localization_status = message_filters.Subscriber('localization_status', Bool, queue_size=1)
+        self.pub_pose = rospy.Publisher('estimated_pose', PoseWithCovarianceStamped, queue_size=1)
         self.pub_ref_image = rospy.Publisher('ref_image_ts', String, queue_size=1)
 
-        self.sub_image.registerCallback(self.on_image)
+        # self.sub_image.registerCallback(self.on_image)
+        self.sub_localization_status.registerCallback(self.on_localization_status)
     
+        self.last_update_time = rospy.Time().now() - rospy.Duration(secs=5)  # init value "5 secs ago"
+
         rospy.loginfo("visual_pr_node is ready")
+
+    def on_localization_status(self, localization_status_msg: Bool):
+        rospy.logdebug("Received localization_status message")
+        if localization_status_msg.data:
+            return  # localization_status == True  ->  localization is okay
+        else:  # the robot got lost
+            if (rospy.Time().now() - self.last_update_time) < rospy.Duration(secs=5):
+                rospy.logdebug("Last update was sent less then 5 secs ago")
+                return
+            try:
+                image_msg = rospy.wait_for_message('image', CompressedImage, timeout=5)
+            except rospy.ROSException:
+                rospy.logerr("image_msg timeout (5 secs) exeeded")
+            else:
+                self.on_image(image_msg)
+                self.last_update_time = rospy.Time().now()
 
     def on_image(self, compressed_image_msg: CompressedImage):
         rospy.logdebug("Received CompressedImage message")
@@ -88,10 +108,10 @@ class VisualPRNode:
         pose_msg.orientation.z = orientation[2]
         pose_msg.orientation.w = orientation[3]
 
-        pose_stamped_msg = PoseStamped()
+        pose_stamped_msg = PoseWithCovarianceStamped()
         pose_stamped_msg.header.stamp = stamp
         pose_stamped_msg.header.frame_id = frame_id
-        pose_stamped_msg.pose = pose_msg
+        pose_stamped_msg.pose.pose = pose_msg
 
         return pose_stamped_msg
 

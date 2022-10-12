@@ -1,0 +1,12 @@
+<launch>
+
+    <!-- Параметры узла -->
+    <arg name="config_path" default="/home/docker_place_recognition/catkin_ws/src/place_recognition/config/netvlad_config.yaml" />
+
+    <!-- Nodes -->
+    <node pkg="place_recognition" type="ref_vis_node.py" name="ref_vis_node" output="screen">
+            <param name="config_path" value="$(arg config_path)" />
+    </node>
+
+
+</launch>
