@@ -1,0 +1,88 @@
+FROM nvcr.io/nvidia/cuda:11.1.1-devel-ubuntu20.04
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Fix outdated apt-key error
+RUN apt-key del 7fa2af80 && \
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+
+# Install system dependencies for convinient development inside container
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    git \
+    tmux \
+    curl \
+    wget \
+    vim \
+    build-essential \
+    sudo \
+    python3-pip \
+    libgl1-mesa-glx \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libeigen3-dev \
+    libboost-all-dev \
+    libssl-dev \
+    libblas-dev \
+    liblapack-dev \
+    swig \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Install PyTorch
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+
+
+# Install latest cmake from source (need to compile faiss)
+RUN wget -q https://github.com/Kitware/CMake/archive/refs/tags/v3.22.1.tar.gz \
+    && tar -xzf v3.22.1.tar.gz && rm v3.22.1.tar.gz && cd CMake-3.22.1 \
+    && ./bootstrap && make -j4 && make -j4 install
+
+# install faiss
+RUN wget -q https://github.com/facebookresearch/faiss/archive/refs/tags/v1.7.2.tar.gz \
+    && tar -xzf v1.7.2.tar.gz && rm v1.7.2.tar.gz && cd faiss-1.7.2 \
+    && cmake -DCMAKE_BUILD_TYPE=Release -B build . \
+    && make -C build -j4 faiss \
+    && make -C build -j4 swigfaiss \
+    && (cd build/faiss/python && python3 setup.py install)
+
+# Install ROS1 Noetic
+RUN apt-get update && apt-get install --no-install-recommends -y \
+        gnupg \
+        lsb-release \
+        curl && \
+    sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    apt-get update && apt-get install --no-install-recommends -y \
+        ros-noetic-ros-base \
+        ros-noetic-cv-bridge \
+        python3-rosdep \
+        python3-rosinstall \
+        python3-rosinstall-generator \
+        python3-wstool \
+        build-essential && \
+    rosdep init && \
+    rosdep update && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install pip requirements
+COPY requirements.txt .
+RUN pip3 install -r requirements.txt \
+    && rm requirements.txt
+
+# add user and his password
+ARG USER=docker_place_recognition
+ARG UID=1000
+ARG GID=1000
+# default password
+ARG PW=user
+
+ENV PYTHONPATH=/home/${USER}/catkin_ws/src/place_recognition:${PYTHONPATH}
+
+RUN useradd -m ${USER} --uid=${UID} && echo "${USER}:${PW}" | chpasswd && adduser ${USER} sudo
+WORKDIR /home/${USER}
+RUN mkdir -p catkin_ws/src/place_recognition && chown -R ${UID}:${GID} /home/${USER}
+RUN mkdir reference_db && chown -R ${UID}:${GID} /home/${USER}
+
+USER ${UID}:${GID}

@@ -1,0 +1,18 @@
+enable_cuda: False
+
+database:
+  root_dir: '/home/docker_place_recognition/reference_db/all_floors_db'
+  faiss_index: '/home/docker_place_recognition/reference_db/all_floors_db/database.index'
+  csv: '/home/docker_place_recognition/reference_db/all_floors_db/database.csv'
+  images:
+    dir: '/home/docker_place_recognition/reference_db/all_floors_db/images'
+    resize: [360, 640]
+
+model:
+  name: 'netvlad'
+  num_clusters: 16
+  patch_sizes: [2,5,8]
+  strides: [1,1,1]
+  num_pcs: 4096
+  feature_dim: 4096
+  weights: '/home/docker_place_recognition/catkin_ws/src/place_recognition/weights/mapillary_WPCA4096.pth.tar'
